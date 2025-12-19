@@ -1,0 +1,216 @@
+# ============================================================================
+# iOS / Xcode .gitignore
+# ============================================================================
+# This file prevents sensitive and unnecessary files from being committed
+# to your Git repository. CRITICAL for protecting secrets!
+
+# ============================================================================
+# 🔐 SECRETS & CREDENTIALS - NEVER COMMIT THESE!
+# ============================================================================
+
+# Code signing certificates and keys
+*.p12
+*.cer
+*.mobileprovision
+*.provisionprofile
+
+# Keychain files
+*.keychain
+*.keychain-db
+
+# App Store Connect API keys
+AuthKey_*.p8
+*.p8
+
+# Environment files with secrets
+.env
+.env.*
+.env.local
+.env.*.local
+*.env
+
+# Fastlane sensitive files
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/**/*.png
+fastlane/test_output
+fastlane/.env.*
+fastlane/README.md
+
+# Match (Fastlane code signing)
+# These may contain encrypted certificates
+# match/
+
+# CircleCI local secrets
+.circleci/*.local.yml
+
+# API keys and tokens
+**/secrets/
+**/credentials/
+api_keys.plist
+Secrets.plist
+GoogleService-Info.plist
+
+# App-specific secrets file (copy from SecretsTemplate.swift)
+**/Secrets.swift
+!**/SecretsTemplate.swift
+
+# ============================================================================
+# Xcode Build Artifacts
+# ============================================================================
+
+# Build products
+build/
+DerivedData/
+*.build/
+
+# Index data
+Index/
+
+# Archives
+*.xcarchive
+
+# Compiled binaries
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# ============================================================================
+# Xcode User Data (Machine-specific)
+# ============================================================================
+
+# User-specific Xcode data
+xcuserdata/
+*.xcuserstate
+
+# Xcode workspace settings (local)
+*.xcworkspace/xcuserdata/
+*.xcworkspace/xcshareddata/IDEWorkspaceChecks.plist
+
+# Playgrounds
+timeline.xctimeline
+playground.xcworkspace
+
+# ============================================================================
+# Swift Package Manager
+# ============================================================================
+
+# SPM build directory
+.build/
+.swiftpm/
+
+# Package.resolved can be committed for apps (recommended)
+# Uncomment to ignore:
+# Package.resolved
+
+# ============================================================================
+# CocoaPods
+# ============================================================================
+
+# Pods directory
+# Note: Some teams prefer to commit Pods for reproducible builds
+# Uncomment if you DON'T want to commit Pods:
+# Pods/
+
+# CocoaPods generated files
+Podfile.lock
+
+# ============================================================================
+# Carthage
+# ============================================================================
+
+Carthage/Build/
+Carthage/Checkouts/
+
+# ============================================================================
+# IDE & Editor Files
+# ============================================================================
+
+# VS Code
+.vscode/
+*.code-workspace
+
+# JetBrains IDEs
+.idea/
+*.iml
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+*.swp
+*.swo
+*~
+
+# ============================================================================
+# macOS System Files
+# ============================================================================
+
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Thumbnails
+Thumbs.db
+
+# Spotlight
+.Spotlight-V100
+
+# Trash
+.Trashes
+
+# ============================================================================
+# Testing & Coverage
+# ============================================================================
+
+# Test results
+*.xcresult
+TestResults/
+test-results/
+coverage/
+*.gcda
+*.gcno
+lcov.info
+
+# UI Test screenshots
+Screenshots/
+Attachments/
+
+# ============================================================================
+# Logs & Temporary Files
+# ============================================================================
+
+*.log
+*.tmp
+*.temp
+logs/
+tmp/
+
+# Crash reports
+*.crash
+*.ips
+
+# ============================================================================
+# Ruby (for Fastlane/CocoaPods)
+# ============================================================================
+
+vendor/bundle/
+.bundle/
+
+# ============================================================================
+# Node.js (if using any JS tools)
+# ============================================================================
+
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# ============================================================================
+# Documentation Generation
+# ============================================================================
+
+docs/generated/
+*.docset
+

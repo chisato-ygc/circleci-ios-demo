@@ -1,0 +1,11 @@
+# frozen_string_literal: true
+
+# Fastlane Plugins
+# Install with: bundle exec fastlane install_plugins
+
+# Uncomment plugins you want to use:
+
+# gem 'fastlane-plugin-firebase_app_distribution'  # Firebase distribution
+# gem 'fastlane-plugin-versioning'                 # Version management
+# gem 'fastlane-plugin-badge'                      # Add badges to app icon
+

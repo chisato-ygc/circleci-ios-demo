@@ -1,0 +1,194 @@
+# frozen_string_literal: true
+
+# ============================================================================
+# Fastlane Configuration for CircleCI
+# ============================================================================
+# Fastlane automates iOS build, test, and deployment processes.
+# This file is designed to work with CircleCI's M4 resource class.
+#
+# 🔐 SECURITY: All secrets are read from environment variables.
+# Set these in CircleCI Project Settings > Environment Variables.
+
+default_platform(:ios)
+
+# ============================================================================
+# PLATFORM CONFIGURATION
+# ============================================================================
+platform :ios do
+  
+  # --------------------------------------------------------------------------
+  # BEFORE ALL - Runs before every lane
+  # --------------------------------------------------------------------------
+  before_all do
+    # Ensure we're using the correct Xcode version
+    xcversion(version: "~> 16.1") if is_ci?
+  end
+
+  # --------------------------------------------------------------------------
+  # BUILD LANE - Compile the app
+  # --------------------------------------------------------------------------
+  desc "Build the app for testing"
+  lane :build do
+    # Build for simulator (no code signing needed)
+    gym(
+      project: "CircleCIDemoApp.xcodeproj",
+      scheme: "CircleCIDemoApp",
+      configuration: "Debug",
+      destination: "generic/platform=iOS Simulator",
+      skip_archive: true,
+      skip_codesigning: true,
+      derived_data_path: "build/DerivedData"
+    )
+  end
+
+  # --------------------------------------------------------------------------
+  # TEST LANE - Run unit and UI tests
+  # --------------------------------------------------------------------------
+  desc "Run all tests"
+  lane :test do
+    # Run tests on simulator
+    scan(
+      project: "CircleCIDemoApp.xcodeproj",
+      scheme: "CircleCIDemoApp",
+      device: "iPhone 16",
+      code_coverage: true,
+      output_directory: "build/test_output",
+      result_bundle: true,
+      derived_data_path: "build/DerivedData"
+    )
+  end
+
+  desc "Run unit tests only"
+  lane :unit_tests do
+    scan(
+      project: "CircleCIDemoApp.xcodeproj",
+      scheme: "CircleCIDemoApp",
+      device: "iPhone 16",
+      only_testing: ["CircleCIDemoAppTests"],
+      code_coverage: true
+    )
+  end
+
+  desc "Run UI tests only"
+  lane :ui_tests do
+    scan(
+      project: "CircleCIDemoApp.xcodeproj",
+      scheme: "CircleCIDemoAppUITests",
+      device: "iPhone 16 Pro",
+      only_testing: ["CircleCIDemoAppUITests"]
+    )
+  end
+
+  # --------------------------------------------------------------------------
+  # BETA LANE - Deploy to TestFlight
+  # --------------------------------------------------------------------------
+  desc "Push a new beta build to TestFlight"
+  lane :beta do
+    # Ensure we have all required secrets
+    ensure_env_vars(
+      env_vars: [
+        "APP_STORE_CONNECT_API_KEY_ID",
+        "APP_STORE_CONNECT_ISSUER_ID",
+        "APP_STORE_CONNECT_API_KEY_CONTENT"
+      ]
+    )
+
+    # Set up App Store Connect API authentication
+    # 🔐 These values come from environment variables (set in CircleCI)
+    api_key = app_store_connect_api_key(
+      key_id: ENV["APP_STORE_CONNECT_API_KEY_ID"],
+      issuer_id: ENV["APP_STORE_CONNECT_ISSUER_ID"],
+      key_content: ENV["APP_STORE_CONNECT_API_KEY_CONTENT"],
+      is_key_content_base64: true
+    )
+
+    # Increment build number for this upload
+    increment_build_number(
+      build_number: ENV["CIRCLE_BUILD_NUM"] || Time.now.strftime("%Y%m%d%H%M")
+    )
+
+    # Build and archive for distribution
+    gym(
+      project: "CircleCIDemoApp.xcodeproj",
+      scheme: "CircleCIDemoApp",
+      configuration: "Release",
+      export_method: "app-store",
+      export_options: {
+        provisioningProfiles: {
+          "com.example.CircleCIDemoApp" => "CircleCIDemoApp AppStore"
+        }
+      }
+    )
+
+    # Upload to TestFlight
+    pilot(
+      api_key: api_key,
+      skip_waiting_for_build_processing: true,
+      skip_submission: true,
+      changelog: changelog_from_git_commits
+    )
+  end
+
+  # --------------------------------------------------------------------------
+  # RELEASE LANE - Deploy to App Store
+  # --------------------------------------------------------------------------
+  desc "Push a new release to the App Store"
+  lane :release do
+    ensure_env_vars(
+      env_vars: [
+        "APP_STORE_CONNECT_API_KEY_ID",
+        "APP_STORE_CONNECT_ISSUER_ID", 
+        "APP_STORE_CONNECT_API_KEY_CONTENT"
+      ]
+    )
+
+    api_key = app_store_connect_api_key(
+      key_id: ENV["APP_STORE_CONNECT_API_KEY_ID"],
+      issuer_id: ENV["APP_STORE_CONNECT_ISSUER_ID"],
+      key_content: ENV["APP_STORE_CONNECT_API_KEY_CONTENT"],
+      is_key_content_base64: true
+    )
+
+    # Build release version
+    gym(
+      project: "CircleCIDemoApp.xcodeproj",
+      scheme: "CircleCIDemoApp",
+      configuration: "Release",
+      export_method: "app-store"
+    )
+
+    # Upload to App Store with metadata
+    deliver(
+      api_key: api_key,
+      submit_for_review: false,
+      automatic_release: false,
+      force: true # Skip interactive prompts in CI
+    )
+  end
+
+  # --------------------------------------------------------------------------
+  # CODE SIGNING LANES
+  # --------------------------------------------------------------------------
+  desc "Sync certificates and profiles using match"
+  lane :sync_signing do
+    # 🔐 Match password comes from environment
+    ensure_env_vars(env_vars: ["MATCH_PASSWORD"])
+
+    match(
+      type: "appstore",
+      readonly: is_ci, # Don't modify in CI
+      git_url: ENV["MATCH_GIT_URL"],
+      app_identifier: "com.example.CircleCIDemoApp"
+    )
+  end
+
+  # --------------------------------------------------------------------------
+  # HELPER METHODS
+  # --------------------------------------------------------------------------
+  
+  # Check if running in CI environment
+  def is_ci?
+    ENV["CI"] == "true" || ENV["CIRCLECI"] == "true"
+  end
+end
+

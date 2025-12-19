@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  ExportOptions.plist
+  
+  This file configures how Xcode exports your app for distribution.
+  Used by xcodebuild -exportArchive command in CircleCI.
+  
+  ⚠️ NOTE: This file does NOT contain secrets, but it references
+  signing identities that must be set up in your CircleCI environment.
+-->
+<plist version="1.0">
+<dict>
+    <!-- 
+    Distribution method:
+    - app-store: App Store / TestFlight distribution
+    - ad-hoc: Ad-hoc distribution (limited devices)
+    - enterprise: Enterprise distribution
+    - development: Development builds
+    -->
+    <key>method</key>
+    <string>app-store</string>
+    
+    <!-- Your Team ID (not secret - visible in App Store) -->
+    <key>teamID</key>
+    <string>YOUR_TEAM_ID</string>
+    
+    <!-- Automatically manage signing (recommended for CI) -->
+    <key>signingStyle</key>
+    <string>automatic</string>
+    
+    <!-- Upload to App Store Connect after export -->
+    <key>destination</key>
+    <string>upload</string>
+    
+    <!-- Strip Swift symbols to reduce binary size -->
+    <key>stripSwiftSymbols</key>
+    <true/>
+    
+    <!-- Upload symbols to Apple for crash reports -->
+    <key>uploadSymbols</key>
+    <true/>
+    
+    <!-- Generate bitcode (deprecated in Xcode 14+) -->
+    <key>compileBitcode</key>
+    <false/>
+    
+    <!--
+    For manual signing, specify provisioning profiles:
+    
+    <key>signingStyle</key>
+    <string>manual</string>
+    
+    <key>provisioningProfiles</key>
+    <dict>
+        <key>com.example.CircleCIDemoApp</key>
+        <string>Your Provisioning Profile Name</string>
+    </dict>
+    
+    <key>signingCertificate</key>
+    <string>Apple Distribution</string>
+    -->
+</dict>
+</plist>
+

@@ -1,0 +1,530 @@
+# ============================================================================
+# CircleCI iOS Configuration - Learning Project
+# ============================================================================
+# This configuration demonstrates how to build and test iOS apps using
+# CircleCI's macOS executors with Apple Silicon (M4) resource classes.
+#
+# Key Concepts Covered:
+# 1. macOS executor configuration
+# 2. M4 resource_class (Apple Silicon)
+# 3. Xcode version selection
+# 4. iOS build and test workflows
+# 5. Code signing and provisioning
+# 6. Caching for faster builds
+# ============================================================================
+
+version: 2.1
+
+# ============================================================================
+# ORBS - Pre-packaged CircleCI configurations
+# ============================================================================
+# Orbs are reusable packages of CircleCI configuration that help you get
+# started quickly. The 'macos' orb provides macOS-specific utilities.
+orbs:
+  macos: circleci/macos@2
+
+# ============================================================================
+# EXECUTORS - Defines the execution environment
+# ============================================================================
+# For iOS development, we use macOS executors. These are actual Mac machines
+# (not containers like Linux) that run your builds.
+executors:
+  # Apple Silicon M4 executor - the latest and fastest option
+  macos-m4-executor:
+    macos:
+      # Xcode version determines the available iOS SDKs and simulators
+      # Format: major.minor.patch (e.g., 15.3.0)
+      # Note: Xcode 15.3 supports iOS 17.4 SDK
+      xcode: "15.3.0"
+    
+    # =========================================================================
+    # RESOURCE_CLASS - The Heart of M4 Configuration
+    # =========================================================================
+    # resource_class defines the hardware specs of your build machine.
+    # 
+    # Available macOS resource classes (as of 2024):
+    #
+    # Intel-based (x86_64) - Legacy:
+    # ┌─────────────────────┬───────┬────────┬─────────────────────┐
+    # │ Resource Class      │ vCPUs │ RAM    │ Notes               │
+    # ├─────────────────────┼───────┼────────┼─────────────────────┤
+    # │ macos.x86.medium.gen2│ 4    │ 8 GB   │ Basic builds        │
+    # │ macos.x86.large.gen2 │ 8    │ 16 GB  │ Larger projects     │
+    # └─────────────────────┴───────┴────────┴─────────────────────┘
+    #
+    # Apple Silicon (ARM64) - Recommended:
+    # ┌─────────────────────┬───────┬────────┬─────────────────────┐
+    # │ Resource Class      │ vCPUs │ RAM    │ Notes               │
+    # ├─────────────────────┼───────┼────────┼─────────────────────┤
+    # │ macos.m1.medium.gen1│ 4     │ 6 GB   │ Entry-level M1      │
+    # │ macos.m1.large.gen1 │ 8     │ 12 GB  │ Standard M1         │
+    # │ macos.m2.medium     │ 4     │ 6 GB   │ Entry-level M2      │
+    # │ macos.m2.large      │ 8     │ 12 GB  │ Standard M2         │
+    # │ macos.m4.medium     │ 4     │ 8 GB   │ ⭐ Entry-level M4   │
+    # │ macos.m4.large      │ 8     │ 16 GB  │ ⭐ Standard M4      │
+    # │ macos.m4.xlarge     │ 12    │ 24 GB  │ ⭐ High-perf M4     │
+    # └─────────────────────┴───────┴────────┴─────────────────────┘
+    #
+    # Why M4?
+    # - 30-50% faster than Intel for Swift compilation
+    # - Native arm64 builds (no Rosetta translation)
+    # - Better energy efficiency = lower costs
+    # - Same architecture as modern Macs = fewer issues
+    resource_class: macos.m4.large
+    
+    # Shell configuration
+    shell: /bin/bash --login -eo pipefail
+    
+    # Environment variables available to all steps
+    environment:
+      # Fastlane configuration
+      LC_ALL: en_US.UTF-8
+      LANG: en_US.UTF-8
+      # Disable Fastlane usage analytics
+      FASTLANE_SKIP_UPDATE_CHECK: "true"
+
+  # Alternative: M4 Medium for smaller projects (cost-effective)
+  macos-m4-medium-executor:
+    macos:
+      xcode: "15.3.0"
+    resource_class: macos.m4.medium
+    shell: /bin/bash --login -eo pipefail
+
+  # Alternative: M2 for compatibility testing
+  macos-m2-executor:
+    macos:
+      xcode: "15.3.0"
+    resource_class: macos.m2.large
+    shell: /bin/bash --login -eo pipefail
+
+# ============================================================================
+# COMMANDS - Reusable step sequences
+# ============================================================================
+commands:
+  # Install project dependencies
+  install-dependencies:
+    description: "Install CocoaPods/SPM dependencies with caching"
+    steps:
+      # Restore cached dependencies to speed up builds
+      - restore_cache:
+          keys:
+            # Try exact match first, then fall back to partial matches
+            - v1-pods-{{ checksum "Podfile.lock" }}
+            - v1-pods-
+      
+      # Install CocoaPods if Podfile exists
+      - run:
+          name: Install CocoaPods Dependencies
+          command: |
+            if [ -f "Podfile" ]; then
+              echo "📦 Installing CocoaPods dependencies..."
+              bundle exec pod install --repo-update
+            else
+              echo "ℹ️ No Podfile found, skipping CocoaPods"
+            fi
+      
+      # Save dependencies to cache for future builds
+      - save_cache:
+          key: v1-pods-{{ checksum "Podfile.lock" }}
+          paths:
+            - Pods
+            - ~/.cocoapods
+
+  # Setup code signing for App Store/TestFlight builds
+  setup-code-signing:
+    description: "Configure code signing certificates and profiles"
+    parameters:
+      decode_certificates:
+        type: boolean
+        default: false
+    steps:
+      - run:
+          name: Setup Code Signing
+          command: |
+            # For production, you would:
+            # 1. Store certificates as base64-encoded environment variables
+            # 2. Decode and import them to the keychain
+            # 3. Download provisioning profiles
+            
+            if [ "<< parameters.decode_certificates >>" = "true" ]; then
+              echo "🔐 Setting up code signing..."
+              
+              # Create a temporary keychain
+              security create-keychain -p "" build.keychain
+              security default-keychain -s build.keychain
+              security unlock-keychain -p "" build.keychain
+              security set-keychain-settings -t 3600 -u build.keychain
+              
+              # In production, decode and import your certificates:
+              # echo $CERTIFICATE_BASE64 | base64 --decode > certificate.p12
+              # security import certificate.p12 -k build.keychain -P $CERT_PASSWORD -A
+              
+              echo "✅ Code signing configured"
+            else
+              echo "ℹ️ Skipping code signing setup (development build)"
+            fi
+
+  # Resolve Swift Package Manager dependencies
+  resolve-spm-dependencies:
+    description: "Resolve Swift Package Manager dependencies"
+    steps:
+      - restore_cache:
+          keys:
+            - v1-spm-{{ checksum "CircleCIDemoApp.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved" }}
+            - v1-spm-
+      
+      - run:
+          name: Resolve Swift Packages
+          command: |
+            echo "📦 Resolving Swift Package Manager dependencies..."
+            xcodebuild -resolvePackageDependencies \
+              -project CircleCIDemoApp.xcodeproj \
+              -scheme CircleCIDemoApp \
+              -clonedSourcePackagesDirPath ~/Library/Developer/Xcode/DerivedData/SourcePackages
+      
+      - save_cache:
+          key: v1-spm-{{ checksum "CircleCIDemoApp.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved" }}
+          paths:
+            - ~/Library/Developer/Xcode/DerivedData/SourcePackages
+
+# ============================================================================
+# JOBS - The actual build/test/deploy steps
+# ============================================================================
+jobs:
+  # -------------------------------------------------------------------------
+  # BUILD JOB - Compile the iOS app
+  # -------------------------------------------------------------------------
+  build:
+    executor: macos-m4-executor
+    
+    # Working directory on the build machine
+    working_directory: ~/project
+    
+    steps:
+      # Checkout source code from your repository
+      - checkout
+      
+      # Show environment info (helpful for debugging)
+      - run:
+          name: Environment Info
+          command: |
+            echo "╔══════════════════════════════════════════════════════════════╗"
+            echo "║          🍎 macOS Build Environment Information             ║"
+            echo "╚══════════════════════════════════════════════════════════════╝"
+            echo ""
+            echo "📍 System Information:"
+            echo "   macOS Version: $(sw_vers -productVersion)"
+            echo "   Build Version: $(sw_vers -buildVersion)"
+            echo "   Architecture:  $(uname -m)"
+            echo ""
+            echo "🔨 Xcode Information:"
+            echo "   Xcode Path:    $(xcode-select -p)"
+            echo "   Xcode Version: $(xcodebuild -version | head -1)"
+            echo "   Build Version: $(xcodebuild -version | tail -1)"
+            echo ""
+            echo "📱 Available Simulators:"
+            xcrun simctl list devices available | head -20
+            echo ""
+            echo "💻 Hardware:"
+            echo "   CPU: $(sysctl -n machdep.cpu.brand_string 2>/dev/null || echo 'Apple Silicon')"
+            echo "   Cores: $(sysctl -n hw.ncpu)"
+            echo "   Memory: $(( $(sysctl -n hw.memsize) / 1024 / 1024 / 1024 )) GB"
+      
+      # Install Ruby dependencies (for Fastlane/CocoaPods)
+      - restore_cache:
+          keys:
+            - v1-gems-{{ checksum "Gemfile.lock" }}
+            - v1-gems-
+      
+      - run:
+          name: Install Ruby Dependencies
+          command: |
+            if [ -f "Gemfile" ]; then
+              bundle config set --local path 'vendor/bundle'
+              bundle install
+            fi
+      
+      - save_cache:
+          key: v1-gems-{{ checksum "Gemfile.lock" }}
+          paths:
+            - vendor/bundle
+      
+      # Resolve dependencies
+      - resolve-spm-dependencies
+      
+      # Build the app
+      - run:
+          name: Build iOS App
+          command: |
+            echo "🏗️ Building iOS App..."
+            
+            # Build for iOS Simulator (arm64 for Apple Silicon)
+            xcodebuild build \
+              -project CircleCIDemoApp.xcodeproj \
+              -scheme CircleCIDemoApp \
+              -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.4' \
+              -configuration Debug \
+              -derivedDataPath build/DerivedData \
+              CODE_SIGN_IDENTITY="" \
+              CODE_SIGNING_REQUIRED=NO \
+              CODE_SIGNING_ALLOWED=NO \
+              | xcbeautify || xcpretty
+            
+            echo "✅ Build completed successfully!"
+      
+      # Persist built artifacts for test job
+      - persist_to_workspace:
+          root: build
+          paths:
+            - DerivedData
+
+  # -------------------------------------------------------------------------
+  # TEST JOB - Run unit and UI tests
+  # -------------------------------------------------------------------------
+  test:
+    executor: macos-m4-executor
+    working_directory: ~/project
+    
+    # Parallelism: Run tests across multiple containers
+    # Each container gets a subset of tests for faster execution
+    parallelism: 2
+    
+    steps:
+      - checkout
+      
+      # Attach the build artifacts from the build job
+      - attach_workspace:
+          at: build
+      
+      # Boot simulator before tests (saves time)
+      # Xcode 15.3 includes iOS 17.4 simulators
+      - macos/preboot-simulator:
+          device: iPhone 15
+          version: "17.4"
+      
+      # Run unit tests
+      - run:
+          name: Run Unit Tests
+          command: |
+            echo "🧪 Running Unit Tests..."
+            
+            # Use CircleCI's test splitting for parallel execution
+            # This divides tests across containers based on timing data
+            
+            xcodebuild test \
+              -project CircleCIDemoApp.xcodeproj \
+              -scheme CircleCIDemoApp \
+              -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.4' \
+              -derivedDataPath build/DerivedData \
+              -resultBundlePath build/TestResults.xcresult \
+              -enableCodeCoverage YES \
+              CODE_SIGN_IDENTITY="" \
+              CODE_SIGNING_REQUIRED=NO \
+              | xcbeautify || xcpretty
+            
+            echo "✅ Tests completed!"
+      
+      # Convert test results to JUnit format for CircleCI
+      - run:
+          name: Convert Test Results
+          when: always
+          command: |
+            if [ -d "build/TestResults.xcresult" ]; then
+              # Install xcresultparser if not present
+              which xcresultparser || brew install --quiet xcresultparser
+              
+              # Convert to JUnit XML
+              xcresultparser \
+                --output-format junit \
+                build/TestResults.xcresult > build/junit-results.xml
+            fi
+      
+      # Upload test results to CircleCI
+      - store_test_results:
+          path: build/junit-results.xml
+      
+      # Store test artifacts (screenshots, logs, etc.)
+      - store_artifacts:
+          path: build/TestResults.xcresult
+          destination: test-results
+
+  # -------------------------------------------------------------------------
+  # UI TEST JOB - Run UI/Integration tests
+  # -------------------------------------------------------------------------
+  ui-test:
+    executor: macos-m4-executor
+    working_directory: ~/project
+    
+    steps:
+      - checkout
+      - attach_workspace:
+          at: build
+      
+      - macos/preboot-simulator:
+          device: iPhone 15 Pro
+          version: "17.4"
+      
+      - run:
+          name: Run UI Tests
+          no_output_timeout: 30m  # UI tests can take longer
+          command: |
+            echo "🎭 Running UI Tests..."
+            
+            xcodebuild test \
+              -project CircleCIDemoApp.xcodeproj \
+              -scheme CircleCIDemoAppUITests \
+              -destination 'platform=iOS Simulator,name=iPhone 15 Pro,OS=17.4' \
+              -derivedDataPath build/DerivedData \
+              -resultBundlePath build/UITestResults.xcresult \
+              CODE_SIGN_IDENTITY="" \
+              CODE_SIGNING_REQUIRED=NO \
+              | xcbeautify || xcpretty
+      
+      # Capture screenshots from failed tests
+      - store_artifacts:
+          path: build/UITestResults.xcresult
+          destination: ui-test-results
+
+  # -------------------------------------------------------------------------
+  # ARCHIVE JOB - Create .ipa for distribution
+  # -------------------------------------------------------------------------
+  archive:
+    executor: macos-m4-executor
+    working_directory: ~/project
+    
+    steps:
+      - checkout
+      - setup-code-signing:
+          decode_certificates: true
+      
+      - run:
+          name: Archive for Distribution
+          command: |
+            echo "📦 Creating Archive..."
+            
+            xcodebuild archive \
+              -project CircleCIDemoApp.xcodeproj \
+              -scheme CircleCIDemoApp \
+              -archivePath build/CircleCIDemoApp.xcarchive \
+              -destination 'generic/platform=iOS' \
+              -configuration Release
+            
+            echo "📱 Exporting IPA..."
+            
+            xcodebuild -exportArchive \
+              -archivePath build/CircleCIDemoApp.xcarchive \
+              -exportPath build/Export \
+              -exportOptionsPlist ExportOptions.plist
+      
+      - store_artifacts:
+          path: build/Export
+          destination: ipa
+
+  # -------------------------------------------------------------------------
+  # DEPLOY JOB - Upload to TestFlight/App Store
+  # -------------------------------------------------------------------------
+  deploy-testflight:
+    executor: macos-m4-medium-executor  # Smaller executor for upload
+    working_directory: ~/project
+    
+    steps:
+      - checkout
+      
+      - attach_workspace:
+          at: build
+      
+      - run:
+          name: Upload to TestFlight
+          command: |
+            echo "🚀 Uploading to TestFlight..."
+            
+            # Using Fastlane (recommended)
+            # bundle exec fastlane pilot upload \
+            #   --ipa build/Export/CircleCIDemoApp.ipa \
+            #   --skip_waiting_for_build_processing
+            
+            # Or using xcrun altool (deprecated) / xcrun notarytool
+            # xcrun altool --upload-app \
+            #   --type ios \
+            #   --file build/Export/CircleCIDemoApp.ipa \
+            #   --apiKey $APP_STORE_CONNECT_API_KEY_ID \
+            #   --apiIssuer $APP_STORE_CONNECT_ISSUER_ID
+            
+            echo "✅ Upload complete!"
+
+# ============================================================================
+# WORKFLOWS - Orchestrate jobs
+# ============================================================================
+workflows:
+  version: 2
+  
+  # Main build-test-deploy workflow
+  build-test-deploy:
+    jobs:
+      # Build first
+      - build:
+          filters:
+            branches:
+              only: /.*/  # Run on all branches
+      
+      # Unit tests after build
+      - test:
+          requires:
+            - build
+      
+      # UI tests after build (runs in parallel with unit tests)
+      - ui-test:
+          requires:
+            - build
+      
+      # Archive only on main/release branches
+      - archive:
+          requires:
+            - test
+            - ui-test
+          filters:
+            branches:
+              only:
+                - main
+                - /release\/.*/
+      
+      # Deploy to TestFlight (manual approval)
+      - hold-for-approval:
+          type: approval
+          requires:
+            - archive
+      
+      - deploy-testflight:
+          requires:
+            - hold-for-approval
+
+  # Nightly comprehensive test run
+  nightly-tests:
+    triggers:
+      - schedule:
+          cron: "0 2 * * *"  # 2 AM UTC daily
+          filters:
+            branches:
+              only:
+                - main
+    jobs:
+      - build
+      - test:
+          requires:
+            - build
+      - ui-test:
+          requires:
+            - build
+
+  # Weekly dependency update check
+  weekly-maintenance:
+    triggers:
+      - schedule:
+          cron: "0 10 * * 1"  # Monday 10 AM UTC
+          filters:
+            branches:
+              only:
+                - main
+    jobs:
+      - build
+
