@@ -33,9 +33,9 @@ executors:
   macos-m4-executor:
     macos:
       # Xcode version determines the available iOS SDKs and simulators
-      # Format: major.minor.patch (e.g., 15.3.0)
-      # Note: Xcode 15.3 supports iOS 17.4 SDK
-      xcode: "15.3.0"
+      # Xcode 26.2.0 includes iOS 26 SDK (latest!)
+      # See: https://circleci.com/changelog/xcode-26-2-0-gm-available/
+      xcode: "26.2.0"
     
     # =========================================================================
     # RESOURCE_CLASS - The Heart of M4 Configuration
@@ -70,7 +70,8 @@ executors:
     # - Native arm64 builds (no Rosetta translation)
     # - Better energy efficiency = lower costs
     # - Same architecture as modern Macs = fewer issues
-    resource_class: macos.m4.medium
+    # Xcode 26.2.0 requires M4 Pro resource class
+    resource_class: macos.m4pro.medium
     
     # Shell configuration
     shell: /bin/bash --login -eo pipefail
@@ -83,17 +84,17 @@ executors:
       # Disable Fastlane usage analytics
       FASTLANE_SKIP_UPDATE_CHECK: "true"
 
-  # Alternative: M4 Medium for smaller projects (cost-effective)
+  # Alternative: M4 Pro Medium for smaller projects (cost-effective)
   macos-m4-medium-executor:
     macos:
-      xcode: "15.3.0"
-    resource_class: macos.m4.medium
+      xcode: "26.2.0"
+    resource_class: macos.m4pro.medium
     shell: /bin/bash --login -eo pipefail
 
   # Alternative: M2 for compatibility testing
   macos-m2-executor:
     macos:
-      xcode: "15.3.0"
+      xcode: "26.2.0"
     resource_class: macos.m2.large
     shell: /bin/bash --login -eo pipefail
 
@@ -262,7 +263,7 @@ jobs:
             xcodebuild build \
               -project CircleCIDemoApp.xcodeproj \
               -scheme CircleCIDemoApp \
-              -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.4' \
+              -destination 'platform=iOS Simulator,name=iPhone 16,OS=26.0' \
               -configuration Debug \
               -derivedDataPath build/DerivedData \
               CODE_SIGN_IDENTITY="" \
@@ -297,10 +298,11 @@ jobs:
           at: build
       
       # Boot simulator before tests (saves time)
-      # Xcode 15.3 includes iOS 17.4 simulators
+      # Xcode 26.2 includes iOS 26 simulators
+      # Note: iOS 26 simulators may freeze - recommend pre-booting with timeout
       - macos/preboot-simulator:
-          device: iPhone 15
-          version: "17.4"
+          device: iPhone 16
+          version: "26.0"
       
       # Run unit tests
       - run:
@@ -314,7 +316,7 @@ jobs:
             xcodebuild test \
               -project CircleCIDemoApp.xcodeproj \
               -scheme CircleCIDemoApp \
-              -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.4' \
+              -destination 'platform=iOS Simulator,name=iPhone 16,OS=26.0' \
               -derivedDataPath build/DerivedData \
               -resultBundlePath build/TestResults.xcresult \
               -enableCodeCoverage YES \
@@ -361,8 +363,8 @@ jobs:
           at: build
       
       - macos/preboot-simulator:
-          device: iPhone 15 Pro
-          version: "17.4"
+          device: iPhone 16 Pro
+          version: "26.0"
       
       - run:
           name: Run UI Tests
@@ -373,7 +375,7 @@ jobs:
             xcodebuild test \
               -project CircleCIDemoApp.xcodeproj \
               -scheme CircleCIDemoAppUITests \
-              -destination 'platform=iOS Simulator,name=iPhone 15 Pro,OS=17.4' \
+              -destination 'platform=iOS Simulator,name=iPhone 16 Pro,OS=26.0' \
               -derivedDataPath build/DerivedData \
               -resultBundlePath build/UITestResults.xcresult \
               CODE_SIGN_IDENTITY="" \
