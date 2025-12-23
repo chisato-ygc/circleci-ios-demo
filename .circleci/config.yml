@@ -71,7 +71,7 @@ executors:
     # - Better energy efficiency = lower costs
     # - Same architecture as modern Macs = fewer issues
     # Xcode 26.2.0 requires M4 Pro resource class
-    resource_class: macos.m4pro.medium
+    resource_class: m4pro.medium
     
     # Shell configuration
     shell: /bin/bash --login -eo pipefail
@@ -88,7 +88,7 @@ executors:
   macos-m4-medium-executor:
     macos:
       xcode: "26.2.0"
-    resource_class: macos.m4pro.medium
+    resource_class: m4pro.medium
     shell: /bin/bash --login -eo pipefail
 
   # Alternative: M2 for compatibility testing
