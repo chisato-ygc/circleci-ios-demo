@@ -70,7 +70,7 @@ executors:
     # - Native arm64 builds (no Rosetta translation)
     # - Better energy efficiency = lower costs
     # - Same architecture as modern Macs = fewer issues
-    resource_class: macos.m4.large
+    resource_class: macos.m4.medium
     
     # Shell configuration
     shell: /bin/bash --login -eo pipefail
