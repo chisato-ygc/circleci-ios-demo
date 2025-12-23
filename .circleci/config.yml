@@ -33,8 +33,8 @@ executors:
   macos-m4-executor:
     macos:
       # Xcode version determines the available iOS SDKs and simulators
-      # Xcode 15.3 includes iOS 17.4 SDK
-      xcode: "15.3.0"
+      # Xcode 15.2 includes iOS 17.2 SDK
+      xcode: "15.2.0"
     
     # =========================================================================
     # RESOURCE_CLASS - The Heart of M4 Configuration
@@ -86,14 +86,14 @@ executors:
   # Alternative: M4 Pro Medium for smaller projects (cost-effective)
   macos-m4-medium-executor:
     macos:
-      xcode: "15.3.0"
+      xcode: "15.2.0"
     resource_class: m4pro.medium
     shell: /bin/bash --login -eo pipefail
 
   # Alternative: M2 for compatibility testing
   macos-m2-executor:
     macos:
-      xcode: "15.3.0"
+      xcode: "15.2.0"
     resource_class: macos.m2.large
     shell: /bin/bash --login -eo pipefail
 
@@ -262,7 +262,7 @@ jobs:
             xcodebuild build \
               -project CircleCIDemoApp.xcodeproj \
               -scheme CircleCIDemoApp \
-              -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.4' \
+              -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.2' \
               -configuration Debug \
               -derivedDataPath build/DerivedData \
               CODE_SIGN_IDENTITY="" \
@@ -297,10 +297,10 @@ jobs:
           at: build
       
       # Boot simulator before tests (saves time)
-      # Xcode 15.3 includes iOS 17.4 simulators
+      # Xcode 15.2 includes iOS 17.2 simulators
       - macos/preboot-simulator:
           device: iPhone 15
-          version: "17.4"
+          version: "17.2"
       
       # Run unit tests
       - run:
@@ -314,7 +314,7 @@ jobs:
             xcodebuild test \
               -project CircleCIDemoApp.xcodeproj \
               -scheme CircleCIDemoApp \
-              -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.4' \
+              -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.2' \
               -derivedDataPath build/DerivedData \
               -resultBundlePath build/TestResults.xcresult \
               -enableCodeCoverage YES \
@@ -362,7 +362,7 @@ jobs:
       
       - macos/preboot-simulator:
           device: iPhone 15 Pro
-          version: "17.4"
+          version: "17.2"
       
       - run:
           name: Run UI Tests
@@ -373,7 +373,7 @@ jobs:
             xcodebuild test \
               -project CircleCIDemoApp.xcodeproj \
               -scheme CircleCIDemoAppUITests \
-              -destination 'platform=iOS Simulator,name=iPhone 15 Pro,OS=17.4' \
+              -destination 'platform=iOS Simulator,name=iPhone 15 Pro,OS=17.2' \
               -derivedDataPath build/DerivedData \
               -resultBundlePath build/UITestResults.xcresult \
               CODE_SIGN_IDENTITY="" \
