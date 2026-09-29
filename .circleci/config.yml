@@ -498,24 +498,6 @@ workflows:
           requires:
             - hold-for-approval
 
-  # Nightly comprehensive test run
-  nightly-tests:
-    triggers:
-      - schedule:
-          cron: "0 2 * * *"  # 2 AM UTC daily
-          filters:
-            branches:
-              only:
-                - main
-    jobs:
-      - build
-      - test:
-          requires:
-            - build
-      - ui-test:
-          requires:
-            - build
-
   # Weekly dependency update check
   weekly-maintenance:
     triggers:
